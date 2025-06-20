@@ -9,7 +9,7 @@ Demonstrating quaternion mathematics, 3D rotations, and orthographic projection 
 
 ## 📁 Project Structure
 ```
-quaternion-demo/
+quaternion-visualization/
 ├── index.html      # Main HTML structure
 ├── styles.css      # All styling and layout
 ├── script.js       # JavaScript functionality
