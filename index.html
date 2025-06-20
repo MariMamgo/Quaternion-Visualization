@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quaternion 3D to 2D Projection Demo</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <h1 style="text-align: center; color: #00ff88; margin-bottom: 30px;">
+        Quaternion 3D to 2D Projection Demo
+    </h1>
+    
+    <div class="container">
+        <div class="controls">
+            <div class="quaternion-display">
+                <div class="coord-label">Current Quaternion:</div>
+                <div id="quat-display" class="coord-value"></div>
+            </div>
+            
+            <div class="control-group">
+                <label for="w-slider">W (Real):</label>
+                <input type="range" id="w-slider" min="-1" max="1" step="0.01" value="1">
+                <input type="number" id="w-input" min="-1" max="1" step="0.01" value="1">
+            </div>
+            
+            <div class="control-group">
+                <label for="x-slider">X:</label>
+                <input type="range" id="x-slider" min="-1" max="1" step="0.01" value="0">
+                <input type="number" id="x-input" min="-1" max="1" step="0.01" value="0">
+            </div>
+            
+            <div class="control-group">
+                <label for="y-slider">Y:</label>
+                <input type="range" id="y-slider" min="-1" max="1" step="0.01" value="0">
+                <input type="number" id="y-input" min="-1" max="1" step="0.01" value="0">
+            </div>
+            
+            <div class="control-group">
+                <label for="z-slider">Z:</label>
+                <input type="range" id="z-slider" min="-1" max="1" step="0.01" value="0">
+                <input type="number" id="z-input" min="-1" max="1" step="0.01" value="0">
+            </div>
+            
+            <div class="buttons">
+                <button class="btn" onclick="autoRotate()">Auto Rotate</button>
+                <button class="btn" onclick="reset()">Reset</button>
+                <button class="btn" onclick="clearTrails()">Clear Trails</button>
+            </div>
+            
+            <div style="margin-top: 20px;">
+                <label>
+                    <input type="checkbox" id="normalize" checked> Auto-normalize quaternion
+                </label>
+            </div>
+        </div>
+        
+        <div class="visualization">
+            <div class="view-panel">
+                <div class="view-title">3D View</div>
+                <div class="canvas-container">
+                    <canvas id="canvas3d" width="350" height="350"></canvas>
+                </div>
+                <div class="coordinates">
+                    <div><span class="coord-label">3D Position:</span></div>
+                    <div id="pos3d" class="coord-value"></div>
+                    <div><span class="coord-label">Rotation Matrix:</span></div>
+                    <div id="rotation-matrix" class="coord-value"></div>
+                </div>
+            </div>
+            
+            <div class="view-panel">
+                <div class="view-title">2D Projection</div>
+                <div class="canvas-container">
+                    <canvas id="canvas2d" width="350" height="350"></canvas>
+                </div>
+                <div class="coordinates">
+                    <div><span class="coord-label">2D Position:</span></div>
+                    <div id="pos2d" class="coord-value"></div>
+                    <div><span class="coord-label">Projection Method:</span></div>
+                    <div class="coord-value">Orthographic (X-Y plane)</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

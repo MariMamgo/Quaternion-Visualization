@@ -1,0 +1,136 @@
+body {
+    margin: 0;
+    padding: 20px;
+    background: #0a0a0a;
+    color: #ffffff;
+    font-family: 'Courier New', monospace;
+    overflow-x: auto;
+}
+
+.container {
+    display: flex;
+    gap: 20px;
+    min-width: 1200px;
+}
+
+.controls {
+    background: #1a1a1a;
+    padding: 20px;
+    border-radius: 10px;
+    width: 300px;
+    height: fit-content;
+    border: 1px solid #333;
+}
+
+.control-group {
+    margin-bottom: 20px;
+}
+
+.control-group label {
+    display: block;
+    margin-bottom: 5px;
+    color: #00ff88;
+    font-weight: bold;
+}
+
+.control-group input[type="range"] {
+    width: 100%;
+    margin-bottom: 5px;
+}
+
+.control-group input[type="number"] {
+    width: 80px;
+    background: #333;
+    border: 1px solid #555;
+    color: #fff;
+    padding: 3px;
+    border-radius: 3px;
+}
+
+.visualization {
+    flex: 1;
+    display: flex;
+    gap: 20px;
+}
+
+.view-panel {
+    background: #1a1a1a;
+    border-radius: 10px;
+    padding: 20px;
+    border: 1px solid #333;
+    flex: 1;
+}
+
+.view-title {
+    color: #00ff88;
+    font-size: 18px;
+    font-weight: bold;
+    margin-bottom: 10px;
+    text-align: center;
+}
+
+.canvas-container {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    margin-bottom: 15px;
+}
+
+canvas {
+    border: 2px solid #333;
+    border-radius: 5px;
+    background: #000;
+}
+
+.coordinates {
+    background: #2a2a2a;
+    padding: 10px;
+    border-radius: 5px;
+    font-size: 12px;
+    line-height: 1.6;
+}
+
+.coord-label {
+    color: #00ff88;
+    font-weight: bold;
+}
+
+.coord-value {
+    color: #fff;
+    font-family: monospace;
+}
+
+.buttons {
+    margin-top: 15px;
+}
+
+.btn {
+    background: #00ff88;
+    color: #000;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 5px;
+    cursor: pointer;
+    margin-right: 20px;
+    margin-bottom: 10px;
+    font-weight: bold;
+}
+
+.btn:hover {
+    background: #00cc66;
+}
+
+.btn:active {
+    background: #009944;
+}
+
+.quaternion-display {
+    background: #2a2a2a;
+    padding: 10px;
+    border-radius: 5px;
+    margin-bottom: 15px;
+}
+
+.trail {
+    opacity: 0.3;
+}
