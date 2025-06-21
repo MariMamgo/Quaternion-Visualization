@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Simple Quaternion Viewer</title>
+    <title>Minimalist Quaternion Viewer</title>
     <style>
         body {
             background: #000;
@@ -48,7 +48,19 @@
     <input type="file" id="fileInput" accept=".txt">
     <div class="info">Select your quaternion.txt file</div>
     
-    <canvas id="canvas" width="600" height="400"></canvas>
+    <div style="display: flex; gap: 20px;">
+        <div>
+            <h3>3D View</h3>
+            <canvas id="canvas3d" width="400" height="400"></canvas>
+            <div class="info">3D Position: <span id="pos3d">x:0, y:0, z:0</span></div>
+        </div>
+        
+        <div>
+            <h3>2D Projection (X-Y)</h3>
+            <canvas id="canvas2d" width="400" height="400"></canvas>
+            <div class="info">2D Position: <span id="pos2d">x:0, y:0</span></div>
+        </div>
+    </div>
     
     <div class="controls">
         <button onclick="play()">Play</button>
@@ -62,13 +74,16 @@
     </div>
 
     <script>
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
+        const canvas3d = document.getElementById('canvas3d');
+        const ctx3d = canvas3d.getContext('2d');
+        const canvas2d = document.getElementById('canvas2d');
+        const ctx2d = canvas2d.getContext('2d');
         
         let quaternionData = [];
         let currentFrame = 0;
         let isPlaying = false;
         let animationId;
+        let trail2d = []; // Store 2D trail points
         
         // File input handler
         document.getElementById('fileInput').addEventListener('change', function(e) {
@@ -124,23 +139,52 @@
             };
         }
         
-        // Simple 3D to 2D projection
-        function project(point) {
+        // 3D to 2D projection for 3D canvas
+        function project3d(point) {
             const scale = 200 / (200 + point.z * 50);
             return {
-                x: canvas.width/2 + point.x * scale * 100,
-                y: canvas.height/2 - point.y * scale * 100
+                x: canvas3d.width/2 + point.x * scale * 100,
+                y: canvas3d.height/2 - point.y * scale * 100
             };
         }
         
-        // Draw the current frame
-        function draw() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        // 3D to 2D orthographic projection (just X-Y plane)
+        function project2d(point) {
+            return {
+                x: canvas2d.width/2 + point.x * 150,
+                y: canvas2d.height/2 - point.y * 150
+            };
+        }
+        
+        // Draw 3D view
+        function draw3d() {
+            ctx3d.clearRect(0, 0, canvas3d.width, canvas3d.height);
             
             if (quaternionData.length === 0) return;
             
             const q = quaternionData[currentFrame];
             const matrix = quaternionToMatrix(q);
+            
+            // Draw coordinate system
+            ctx3d.strokeStyle = '#333';
+            ctx3d.lineWidth = 1;
+            
+            // Grid
+            for (let i = -2; i <= 2; i++) {
+                const start = project3d({x: i*0.5, y: -1, z: 0});
+                const end = project3d({x: i*0.5, y: 1, z: 0});
+                ctx3d.beginPath();
+                ctx3d.moveTo(start.x, start.y);
+                ctx3d.lineTo(end.x, end.y);
+                ctx3d.stroke();
+                
+                const start2 = project3d({x: -1, y: i*0.5, z: 0});
+                const end2 = project3d({x: 1, y: i*0.5, z: 0});
+                ctx3d.beginPath();
+                ctx3d.moveTo(start2.x, start2.y);
+                ctx3d.lineTo(end2.x, end2.y);
+                ctx3d.stroke();
+            }
             
             // Draw a simple cube
             const cubePoints = [
@@ -153,12 +197,12 @@
             // Rotate and project points
             const projectedPoints = cubePoints.map(p => {
                 const rotated = rotatePoint(matrix, p);
-                return project(rotated);
+                return project3d(rotated);
             });
             
             // Draw cube edges
-            ctx.strokeStyle = '#0f0';
-            ctx.lineWidth = 2;
+            ctx3d.strokeStyle = '#0f0';
+            ctx3d.lineWidth = 2;
             
             const edges = [
                 [0,1],[1,2],[2,3],[3,0], // back face
@@ -170,10 +214,10 @@
                 const start = projectedPoints[edge[0]];
                 const end = projectedPoints[edge[1]];
                 
-                ctx.beginPath();
-                ctx.moveTo(start.x, start.y);
-                ctx.lineTo(end.x, end.y);
-                ctx.stroke();
+                ctx3d.beginPath();
+                ctx3d.moveTo(start.x, start.y);
+                ctx3d.lineTo(end.x, end.y);
+                ctx3d.stroke();
             });
             
             // Draw axes
@@ -187,21 +231,115 @@
             
             axes.forEach((axis, i) => {
                 const rotated = rotatePoint(matrix, axis);
-                const projected = project(rotated);
-                const center = project({x:0, y:0, z:0});
+                const projected = project3d(rotated);
+                const center = project3d({x:0, y:0, z:0});
                 
-                ctx.strokeStyle = axisColors[i];
-                ctx.lineWidth = 3;
-                ctx.beginPath();
-                ctx.moveTo(center.x, center.y);
-                ctx.lineTo(projected.x, projected.y);
-                ctx.stroke();
+                ctx3d.strokeStyle = axisColors[i];
+                ctx3d.lineWidth = 3;
+                ctx3d.beginPath();
+                ctx3d.moveTo(center.x, center.y);
+                ctx3d.lineTo(projected.x, projected.y);
+                ctx3d.stroke();
             });
             
-            // Update info
+            // Track a corner point for trail
+            const trackedPoint = rotatePoint(matrix, {x:0.5, y:0.5, z:0.5});
+            return trackedPoint;
+        }
+        
+        // Draw 2D view
+        function draw2d(trackedPoint) {
+            ctx2d.clearRect(0, 0, canvas2d.width, canvas2d.height);
+            
+            // Draw grid
+            ctx2d.strokeStyle = '#333';
+            ctx2d.lineWidth = 1;
+            
+            for (let i = -2; i <= 2; i++) {
+                // Vertical lines
+                ctx2d.beginPath();
+                ctx2d.moveTo(canvas2d.width/2 + i*75, 0);
+                ctx2d.lineTo(canvas2d.width/2 + i*75, canvas2d.height);
+                ctx2d.stroke();
+                
+                // Horizontal lines
+                ctx2d.beginPath();
+                ctx2d.moveTo(0, canvas2d.height/2 + i*75);
+                ctx2d.lineTo(canvas2d.width, canvas2d.height/2 + i*75);
+                ctx2d.stroke();
+            }
+            
+            // Draw axes
+            ctx2d.strokeStyle = '#666';
+            ctx2d.lineWidth = 2;
+            
+            // X axis
+            ctx2d.beginPath();
+            ctx2d.moveTo(0, canvas2d.height/2);
+            ctx2d.lineTo(canvas2d.width, canvas2d.height/2);
+            ctx2d.stroke();
+            
+            // Y axis
+            ctx2d.beginPath();
+            ctx2d.moveTo(canvas2d.width/2, 0);
+            ctx2d.lineTo(canvas2d.width/2, canvas2d.height);
+            ctx2d.stroke();
+            
+            if (trackedPoint) {
+                // Add to trail
+                const pos2d = project2d(trackedPoint);
+                trail2d.push(pos2d);
+                
+                // Limit trail length
+                if (trail2d.length > 100) {
+                    trail2d.shift();
+                }
+                
+                // Draw trail
+                ctx2d.strokeStyle = '#0f0';
+                ctx2d.lineWidth = 1;
+                ctx2d.globalAlpha = 0.5;
+                
+                for (let i = 1; i < trail2d.length; i++) {
+                    ctx2d.beginPath();
+                    ctx2d.moveTo(trail2d[i-1].x, trail2d[i-1].y);
+                    ctx2d.lineTo(trail2d[i].x, trail2d[i].y);
+                    ctx2d.stroke();
+                }
+                
+                ctx2d.globalAlpha = 1;
+                
+                // Draw current point
+                ctx2d.fillStyle = '#0f0';
+                ctx2d.fillRect(pos2d.x - 3, pos2d.y - 3, 6, 6);
+                
+                // Update 2D position display
+                document.getElementById('pos2d').textContent = 
+                    `x:${trackedPoint.x.toFixed(3)}, y:${trackedPoint.y.toFixed(3)}`;
+            }
+        }
+        
+        // Draw the current frame
+        function draw() {
+            if (quaternionData.length === 0) return;
+            
+            const q = quaternionData[currentFrame];
+            
+            // Draw 3D view and get tracked point
+            const trackedPoint = draw3d();
+            
+            // Draw 2D projection
+            draw2d(trackedPoint);
+            
+            // Update info displays
             document.getElementById('frame').textContent = currentFrame;
             document.getElementById('quat').textContent = 
                 `w:${q.w.toFixed(3)}, x:${q.x.toFixed(3)}, y:${q.y.toFixed(3)}, z:${q.z.toFixed(3)}`;
+            
+            if (trackedPoint) {
+                document.getElementById('pos3d').textContent = 
+                    `x:${trackedPoint.x.toFixed(3)}, y:${trackedPoint.y.toFixed(3)}, z:${trackedPoint.z.toFixed(3)}`;
+            }
         }
         
         // Animation functions
@@ -219,6 +357,7 @@
         function reset() {
             pause();
             currentFrame = 0;
+            trail2d = []; // Clear trail
             draw();
         }
         
