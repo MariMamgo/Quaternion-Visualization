@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Simple Quaternion Viewer</title>
+    <style>
+        body {
+            background: #000;
+            color: #fff;
+            font-family: monospace;
+            margin: 20px;
+        }
+        
+        canvas {
+            border: 1px solid #333;
+            background: #111;
+        }
+        
+        .controls {
+            margin: 20px 0;
+        }
+        
+        button {
+            background: #0f0;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+        }
+        
+        .info {
+            margin: 10px 0;
+            font-size: 14px;
+        }
+        
+        input[type="file"] {
+            margin: 10px 0;
+            padding: 5px;
+            background: #333;
+            color: #fff;
+            border: 1px solid #555;
+        }
+    </style>
+</head>
+<body>
+    <h2>Simple Quaternion Data Viewer</h2>
+    
+    <input type="file" id="fileInput" accept=".txt">
+    <div class="info">Select your quaternion.txt file</div>
+    
+    <canvas id="canvas" width="600" height="400"></canvas>
+    
+    <div class="controls">
+        <button onclick="play()">Play</button>
+        <button onclick="pause()">Pause</button>
+        <button onclick="reset()">Reset</button>
+    </div>
+    
+    <div class="info">
+        <div>Frame: <span id="frame">0</span> / <span id="total">0</span></div>
+        <div>Quaternion: <span id="quat">w:0, x:0, y:0, z:0</span></div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        let quaternionData = [];
+        let currentFrame = 0;
+        let isPlaying = false;
+        let animationId;
+        
+        // File input handler
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    loadData(e.target.result);
+                };
+                reader.readAsText(file);
+            }
+        });
+        
+        // Load and parse quaternion data
+        function loadData(text) {
+            const lines = text.trim().split('\n');
+            quaternionData = [];
+            
+            lines.forEach(line => {
+                const parts = line.split(',');
+                if (parts.length === 4) {
+                    const q = {
+                        w: parseFloat(parts[0].split(':')[1]),
+                        x: parseFloat(parts[1].split(':')[1]),
+                        y: parseFloat(parts[2].split(':')[1]),
+                        z: parseFloat(parts[3].split(':')[1])
+                    };
+                    quaternionData.push(q);
+                }
+            });
+            
+            document.getElementById('total').textContent = quaternionData.length;
+            console.log('Loaded', quaternionData.length, 'quaternions');
+            reset();
+        }
+        
+        // Convert quaternion to rotation matrix
+        function quaternionToMatrix(q) {
+            const w = q.w, x = q.x, y = q.y, z = q.z;
+            return [
+                [1-2*(y*y+z*z), 2*(x*y-w*z), 2*(x*z+w*y)],
+                [2*(x*y+w*z), 1-2*(x*x+z*z), 2*(y*z-w*x)],
+                [2*(x*z-w*y), 2*(y*z+w*x), 1-2*(x*x+y*y)]
+            ];
+        }
+        
+        // Apply rotation to a 3D point
+        function rotatePoint(matrix, point) {
+            return {
+                x: matrix[0][0]*point.x + matrix[0][1]*point.y + matrix[0][2]*point.z,
+                y: matrix[1][0]*point.x + matrix[1][1]*point.y + matrix[1][2]*point.z,
+                z: matrix[2][0]*point.x + matrix[2][1]*point.y + matrix[2][2]*point.z
+            };
+        }
+        
+        // Simple 3D to 2D projection
+        function project(point) {
+            const scale = 200 / (200 + point.z * 50);
+            return {
+                x: canvas.width/2 + point.x * scale * 100,
+                y: canvas.height/2 - point.y * scale * 100
+            };
+        }
+        
+        // Draw the current frame
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            if (quaternionData.length === 0) return;
+            
+            const q = quaternionData[currentFrame];
+            const matrix = quaternionToMatrix(q);
+            
+            // Draw a simple cube
+            const cubePoints = [
+                {x:-0.5, y:-0.5, z:-0.5}, {x:0.5, y:-0.5, z:-0.5},
+                {x:0.5, y:0.5, z:-0.5}, {x:-0.5, y:0.5, z:-0.5},
+                {x:-0.5, y:-0.5, z:0.5}, {x:0.5, y:-0.5, z:0.5},
+                {x:0.5, y:0.5, z:0.5}, {x:-0.5, y:0.5, z:0.5}
+            ];
+            
+            // Rotate and project points
+            const projectedPoints = cubePoints.map(p => {
+                const rotated = rotatePoint(matrix, p);
+                return project(rotated);
+            });
+            
+            // Draw cube edges
+            ctx.strokeStyle = '#0f0';
+            ctx.lineWidth = 2;
+            
+            const edges = [
+                [0,1],[1,2],[2,3],[3,0], // back face
+                [4,5],[5,6],[6,7],[7,4], // front face
+                [0,4],[1,5],[2,6],[3,7]  // connecting edges
+            ];
+            
+            edges.forEach(edge => {
+                const start = projectedPoints[edge[0]];
+                const end = projectedPoints[edge[1]];
+                
+                ctx.beginPath();
+                ctx.moveTo(start.x, start.y);
+                ctx.lineTo(end.x, end.y);
+                ctx.stroke();
+            });
+            
+            // Draw axes
+            const axes = [
+                {x:1, y:0, z:0}, // X axis
+                {x:0, y:1, z:0}, // Y axis  
+                {x:0, y:0, z:1}  // Z axis
+            ];
+            
+            const axisColors = ['#f00', '#0f0', '#00f'];
+            
+            axes.forEach((axis, i) => {
+                const rotated = rotatePoint(matrix, axis);
+                const projected = project(rotated);
+                const center = project({x:0, y:0, z:0});
+                
+                ctx.strokeStyle = axisColors[i];
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(center.x, center.y);
+                ctx.lineTo(projected.x, projected.y);
+                ctx.stroke();
+            });
+            
+            // Update info
+            document.getElementById('frame').textContent = currentFrame;
+            document.getElementById('quat').textContent = 
+                `w:${q.w.toFixed(3)}, x:${q.x.toFixed(3)}, y:${q.y.toFixed(3)}, z:${q.z.toFixed(3)}`;
+        }
+        
+        // Animation functions
+        function play() {
+            if (quaternionData.length === 0) return;
+            isPlaying = true;
+            animate();
+        }
+        
+        function pause() {
+            isPlaying = false;
+            if (animationId) cancelAnimationFrame(animationId);
+        }
+        
+        function reset() {
+            pause();
+            currentFrame = 0;
+            draw();
+        }
+        
+        function animate() {
+            if (!isPlaying) return;
+            
+            draw();
+            currentFrame++;
+            
+            if (currentFrame >= quaternionData.length) {
+                currentFrame = 0; // Loop
+            }
+            
+            setTimeout(() => {
+                animationId = requestAnimationFrame(animate);
+            }, 50); // 20 FPS
+        }
+        
+        // Initial draw
+        draw();
+    </script>
+</body>
+</html>
