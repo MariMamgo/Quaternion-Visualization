@@ -20,6 +20,213 @@ let trails3d = [];
 let trails2d = [];
 let animationId;
 
+// Quaternion data from file
+let quaternionData = [];
+let currentDataIndex = 0;
+let isPlayingData = false;
+
+// Load and parse quaternion data
+async function loadQuaternionData() {
+    try {
+        // Read the quaternion.txt file
+        const fileContent = await window.fs.readFile('quaternion.txt', { encoding: 'utf8' });
+        const lines = fileContent.trim().split('\n');
+        
+        quaternionData = lines.map(line => {
+            const parts = line.split(',').map(part => part.trim());
+            if (parts.length === 4) {
+                return {
+                    w: parseFloat(parts[0].split(':')[1]),
+                    x: parseFloat(parts[1].split(':')[1]),
+                    y: parseFloat(parts[2].split(':')[1]),
+                    z: parseFloat(parts[3].split(':')[1])
+                };
+            }
+            return null;
+        }).filter(q => q !== null);
+        
+        console.log(`Loaded ${quaternionData.length} quaternion data points`);
+        
+        // Add data playback controls to the UI
+        addDataPlaybackControls();
+        
+        return quaternionData;
+    } catch (error) {
+        console.error('Error loading quaternion data:', error);
+        quaternionData = [];
+        return [];
+    }
+}
+
+// Add data playback controls to the UI
+function addDataPlaybackControls() {
+    const controlsDiv = document.querySelector('.controls');
+    
+    // Create data controls section
+    const dataControlsHTML = `
+        <div class="data-controls" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #333;">
+            <div style="color: #00ff88; font-weight: bold; margin-bottom: 10px;">Quaternion Data Playback</div>
+            <div style="margin-bottom: 10px;">
+                <span style="color: #ccc; font-size: 12px;">Frame: </span>
+                <span id="current-frame" style="color: #fff;">0</span>
+                <span style="color: #ccc;"> / </span>
+                <span id="total-frames" style="color: #fff;">${quaternionData.length}</span>
+            </div>
+            <input type="range" id="data-slider" min="0" max="${quaternionData.length - 1}" value="0" style="width: 100%; margin-bottom: 10px;">
+            <div class="buttons">
+                <button class="btn" id="play-data-btn">Play Data</button>
+                <button class="btn" id="pause-data-btn">Pause</button>
+                <button class="btn" id="reset-data-btn">Reset</button>
+            </div>
+            <div style="margin-top: 10px;">
+                <label style="color: #ccc; font-size: 12px;">
+                    <input type="checkbox" id="loop-data" checked> Loop playback
+                </label>
+            </div>
+            <div style="margin-top: 10px;">
+                <label style="color: #ccc; font-size: 12px;">Speed: </label>
+                <input type="range" id="speed-slider" min="1" max="100" value="10" style="width: 60px;">
+                <span id="speed-value" style="color: #fff; font-size: 12px;">10</span>
+            </div>
+        </div>
+    `;
+    
+    controlsDiv.insertAdjacentHTML('beforeend', dataControlsHTML);
+    
+    // Add event listeners for data controls
+    setupDataControlEvents();
+}
+
+// Setup event listeners for data playback controls
+function setupDataControlEvents() {
+    const playBtn = document.getElementById('play-data-btn');
+    const pauseBtn = document.getElementById('pause-data-btn');
+    const resetBtn = document.getElementById('reset-data-btn');
+    const dataSlider = document.getElementById('data-slider');
+    const speedSlider = document.getElementById('speed-slider');
+    const speedValue = document.getElementById('speed-value');
+    
+    playBtn.addEventListener('click', playQuaternionData);
+    pauseBtn.addEventListener('click', pauseQuaternionData);
+    resetBtn.addEventListener('click', resetQuaternionData);
+    
+    dataSlider.addEventListener('input', (e) => {
+        currentDataIndex = parseInt(e.target.value);
+        setQuaternionFromData(currentDataIndex);
+        updateFrameDisplay();
+    });
+    
+    speedSlider.addEventListener('input', (e) => {
+        speedValue.textContent = e.target.value;
+    });
+}
+
+// Play quaternion data
+function playQuaternionData() {
+    if (quaternionData.length === 0) return;
+    
+    isPlayingData = true;
+    isAutoRotating = false; // Stop manual auto-rotation
+    
+    function playFrame() {
+        if (!isPlayingData) return;
+        
+        setQuaternionFromData(currentDataIndex);
+        updateFrameDisplay();
+        
+        // Advance to next frame
+        currentDataIndex++;
+        
+        // Handle looping
+        if (currentDataIndex >= quaternionData.length) {
+            const loopCheckbox = document.getElementById('loop-data');
+            if (loopCheckbox && loopCheckbox.checked) {
+                currentDataIndex = 0;
+            } else {
+                isPlayingData = false;
+                return;
+            }
+        }
+        
+        // Update slider position
+        const dataSlider = document.getElementById('data-slider');
+        if (dataSlider) {
+            dataSlider.value = currentDataIndex;
+        }
+        
+        // Schedule next frame based on speed
+        const speedSlider = document.getElementById('speed-slider');
+        const speed = speedSlider ? parseInt(speedSlider.value) : 10;
+        const delay = Math.max(16, 200 - speed * 2); // Minimum 16ms (60fps), adjust based on speed
+        
+        setTimeout(() => {
+            animationId = requestAnimationFrame(playFrame);
+        }, delay);
+    }
+    
+    playFrame();
+}
+
+// Pause quaternion data playback
+function pauseQuaternionData() {
+    isPlayingData = false;
+    if (animationId) {
+        cancelAnimationFrame(animationId);
+    }
+}
+
+// Reset quaternion data playback
+function resetQuaternionData() {
+    pauseQuaternionData();
+    currentDataIndex = 0;
+    
+    if (quaternionData.length > 0) {
+        setQuaternionFromData(0);
+    }
+    
+    const dataSlider = document.getElementById('data-slider');
+    if (dataSlider) {
+        dataSlider.value = 0;
+    }
+    
+    updateFrameDisplay();
+    clearTrails();
+}
+
+// Set quaternion from data at specific index
+function setQuaternionFromData(index) {
+    if (index >= 0 && index < quaternionData.length) {
+        const data = quaternionData[index];
+        quaternion = { ...data };
+        
+        // Update control sliders and inputs
+        controls.w.slider.value = quaternion.w;
+        controls.w.input.value = quaternion.w.toFixed(6);
+        controls.x.slider.value = quaternion.x;
+        controls.x.input.value = quaternion.x.toFixed(6);
+        controls.y.slider.value = quaternion.y;
+        controls.y.input.value = quaternion.y.toFixed(6);
+        controls.z.slider.value = quaternion.z;
+        controls.z.input.value = quaternion.z.toFixed(6);
+        
+        // Update visualization
+        updateQuaternionVisualization();
+    }
+}
+
+// Update frame display
+function updateFrameDisplay() {
+    const currentFrameSpan = document.getElementById('current-frame');
+    const totalFramesSpan = document.getElementById('total-frames');
+    
+    if (currentFrameSpan) {
+        currentFrameSpan.textContent = currentDataIndex;
+    }
+    if (totalFramesSpan) {
+        totalFramesSpan.textContent = quaternionData.length;
+    }
+}
+
 // Quaternion math functions
 function normalizeQuaternion(q) {
     const magnitude = Math.sqrt(q.w * q.w + q.x * q.x + q.y * q.y + q.z * q.z);
@@ -308,22 +515,43 @@ function draw2dScene() {
 function updateDisplay() {
     // Update quaternion display
     document.getElementById('quat-display').textContent = 
-        `w: ${quaternion.w.toFixed(3)}, x: ${quaternion.x.toFixed(3)}, y: ${quaternion.y.toFixed(3)}, z: ${quaternion.z.toFixed(3)}`;
+        `w: ${quaternion.w.toFixed(6)}, x: ${quaternion.x.toFixed(6)}, y: ${quaternion.y.toFixed(6)}, z: ${quaternion.z.toFixed(6)}`;
     
     // Update 3D position display - now shows the tracked corner
     const trackedCorner = trails3d.length > 0 ? trails3d[trails3d.length - 1] : { x: 0.5, y: 0.5, z: 0.5 };
     document.getElementById('pos3d').textContent = 
-        `x: ${trackedCorner.x.toFixed(3)}, y: ${trackedCorner.y.toFixed(3)}, z: ${trackedCorner.z.toFixed(3)}`;
+        `x: ${trackedCorner.x.toFixed(6)}, y: ${trackedCorner.y.toFixed(6)}, z: ${trackedCorner.z.toFixed(6)}`;
     
     // Update 2D position display
     const pos2d = project3dTo2d(trackedCorner);
     document.getElementById('pos2d').textContent = 
-        `x: ${pos2d.x.toFixed(3)}, y: ${pos2d.y.toFixed(3)}`;
+        `x: ${pos2d.x.toFixed(6)}, y: ${pos2d.y.toFixed(6)}`;
     
     // Update rotation matrix display
     const matrix = quaternionToMatrix(quaternion);
     document.getElementById('rotation-matrix').innerHTML = 
-        matrix.map(row => `[${row.map(val => val.toFixed(2)).join(', ')}]`).join('<br>');
+        matrix.map(row => `[${row.map(val => val.toFixed(4)).join(', ')}]`).join('<br>');
+}
+
+// Modified function to update quaternion visualization without changing the quaternion values
+function updateQuaternionVisualization() {
+    // Track a specific corner of the cube to show its path
+    const trackedCorner = { x: 0.5, y: 0.5, z: 0.5 }; // One corner of the cube
+    const rotatedCorner = applyQuaternionRotation(quaternion, trackedCorner);
+    
+    // Add to trails
+    trails3d.push({ ...rotatedCorner });
+    trails2d.push(project3dTo2d(rotatedCorner));
+    
+    // Limit trail length
+    if (trails3d.length > 200) {
+        trails3d.shift();
+        trails2d.shift();
+    }
+    
+    updateDisplay();
+    draw3dScene();
+    draw2dScene();
 }
 
 function updateQuaternion() {
@@ -346,23 +574,7 @@ function updateQuaternion() {
         controls.z.input.value = quaternion.z;
     }
     
-    // Track a specific corner of the cube to show its path
-    const trackedCorner = { x: 0.5, y: 0.5, z: 0.5 }; // One corner of the cube
-    const rotatedCorner = applyQuaternionRotation(quaternion, trackedCorner);
-    
-    // Add to trails
-    trails3d.push({ ...rotatedCorner });
-    trails2d.push(project3dTo2d(rotatedCorner));
-    
-    // Limit trail length
-    if (trails3d.length > 100) {
-        trails3d.shift();
-        trails2d.shift();
-    }
-    
-    updateDisplay();
-    draw3dScene();
-    draw2dScene();
+    updateQuaternionVisualization();
 }
 
 // Event listeners
@@ -387,6 +599,7 @@ function autoRotate() {
     }
     
     isAutoRotating = true;
+    isPlayingData = false; // Stop data playback
     let time = 0;
     
     function animate() {
@@ -414,6 +627,7 @@ function autoRotate() {
 
 function reset() {
     isAutoRotating = false;
+    isPlayingData = false;
     cancelAnimationFrame(animationId);
     
     controls.w.slider.value = 1;
@@ -437,4 +651,10 @@ function clearTrails() {
 }
 
 // Initialize
-updateQuaternion();
+async function initialize() {
+    await loadQuaternionData();
+    updateQuaternion();
+}
+
+// Start the application
+initialize();
