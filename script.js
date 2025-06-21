@@ -25,73 +25,171 @@ let quaternionData = [];
 let currentDataIndex = 0;
 let isPlayingData = false;
 
-// Load and parse quaternion data
+// Sample quaternion data (embedded for demo)
+const sampleQuaternionData = `w: 0.9533649, x: -0.30172053, y: 0.9533649, z: -0.007400504
+w: 0.9533656, x: -0.30172077, y: 0.9533656, z: -0.0073005026
+w: 0.9533656, x: -0.30172077, y: 0.9533656, z: -0.0073005026
+w: 0.9533361, x: -0.30181143, y: 0.9533361, z: -0.0074002803
+w: 0.9533369, x: -0.30181167, y: 0.9533369, z: -0.0073002824
+w: 0.9533081, x: -0.30190256, y: 0.9533081, z: -0.007300062
+w: 0.953299, x: -0.30193135, y: 0.953299, z: -0.007300758
+w: 0.9532982, x: -0.3019311, y: 0.9532982, z: -0.0074007623
+w: 0.9532694, x: -0.302022, y: 0.9532694, z: -0.0074005392
+w: 0.9533023, x: -0.3019324, y: 0.9533023, z: -0.006900741`;
+
+// Load and parse quaternion data - Multiple methods
 async function loadQuaternionData() {
+    const container = document.getElementById('data-controls-container');
+    container.innerHTML = '<div class="loading-message">Loading quaternion data...</div>';
+    
+    // Method 1: Try the file system API (Claude.ai environment)
+    if (window.fs && window.fs.readFile) {
+        try {
+            const fileContent = await window.fs.readFile('quaternion.txt', { encoding: 'utf8' });
+            parseQuaternionData(fileContent);
+            console.log(`Loaded ${quaternionData.length} quaternion data points from file`);
+            addDataPlaybackControls();
+            return quaternionData;
+        } catch (error) {
+            console.log('File system API failed, trying alternatives...');
+        }
+    }
+    
+    // Method 2: Try fetch API (if served from web server)
     try {
-        // Read the quaternion.txt file
-        const fileContent = await window.fs.readFile('quaternion.txt', { encoding: 'utf8' });
-        const lines = fileContent.trim().split('\n');
-        
-        quaternionData = lines.map(line => {
-            const parts = line.split(',').map(part => part.trim());
-            if (parts.length === 4) {
-                return {
-                    w: parseFloat(parts[0].split(':')[1]),
-                    x: parseFloat(parts[1].split(':')[1]),
-                    y: parseFloat(parts[2].split(':')[1]),
-                    z: parseFloat(parts[3].split(':')[1])
-                };
-            }
-            return null;
-        }).filter(q => q !== null);
-        
-        console.log(`Loaded ${quaternionData.length} quaternion data points`);
-        
-        // Add data playback controls to the UI
-        addDataPlaybackControls();
-        
-        return quaternionData;
+        const response = await fetch('quaternion.txt');
+        if (response.ok) {
+            const fileContent = await response.text();
+            parseQuaternionData(fileContent);
+            console.log(`Loaded ${quaternionData.length} quaternion data points via fetch`);
+            addDataPlaybackControls();
+            return quaternionData;
+        }
     } catch (error) {
-        console.error('Error loading quaternion data:', error);
-        quaternionData = [];
-        return [];
+        console.log('Fetch API failed, using embedded sample data...');
+    }
+    
+    // Method 3: Use embedded sample data and show file input
+    parseQuaternionData(sampleQuaternionData);
+    console.log(`Using ${quaternionData.length} sample quaternion data points`);
+    addFileInputControls();
+    addDataPlaybackControls();
+    return quaternionData;
+}
+
+// Parse quaternion data from text content
+function parseQuaternionData(textContent) {
+    const lines = textContent.trim().split('\n');
+    
+    quaternionData = lines.map(line => {
+        const parts = line.split(',').map(part => part.trim());
+        if (parts.length === 4) {
+            return {
+                w: parseFloat(parts[0].split(':')[1]),
+                x: parseFloat(parts[1].split(':')[1]),
+                y: parseFloat(parts[2].split(':')[1]),
+                z: parseFloat(parts[3].split(':')[1])
+            };
+        }
+        return null;
+    }).filter(q => q !== null);
+}
+
+// Add file input controls for manual file loading
+function addFileInputControls() {
+    const container = document.getElementById('data-controls-container');
+    
+    const fileInputHTML = `
+        <div class="file-input-section" style="margin-bottom: 20px; padding: 15px; background: #2a2a2a; border-radius: 5px;">
+            <div class="coord-label" style="margin-bottom: 10px;">Load Your Quaternion Data</div>
+            <input type="file" id="quaternion-file-input" accept=".txt" style="margin-bottom: 10px; width: 100%; padding: 5px; background: #333; color: #fff; border: 1px solid #555; border-radius: 3px;">
+            <div style="font-size: 12px; color: #ccc;">
+                Expected format: w: value, x: value, y: value, z: value
+            </div>
+            <div style="font-size: 12px; color: #ccc; margin-top: 5px;">
+                Currently using sample data. Upload your quaternion.txt file above.
+            </div>
+        </div>
+    `;
+    
+    container.insertAdjacentHTML('afterbegin', fileInputHTML);
+    
+    // Add file input event listener
+    const fileInput = document.getElementById('quaternion-file-input');
+    fileInput.addEventListener('change', handleFileInput);
+}
+
+// Handle file input from user
+function handleFileInput(event) {
+    const file = event.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const content = e.target.result;
+            parseQuaternionData(content);
+            console.log(`Loaded ${quaternionData.length} quaternion data points from uploaded file`);
+            
+            // Update the data slider max value
+            const dataSlider = document.getElementById('data-slider');
+            if (dataSlider) {
+                dataSlider.max = quaternionData.length - 1;
+            }
+            
+            // Update total frames display
+            const totalFramesSpan = document.getElementById('total-frames');
+            if (totalFramesSpan) {
+                totalFramesSpan.textContent = quaternionData.length;
+            }
+            
+            // Update file status message
+            const fileSection = document.querySelector('.file-input-section');
+            if (fileSection) {
+                const statusDiv = fileSection.querySelector('div:last-child');
+                statusDiv.textContent = `Successfully loaded ${quaternionData.length} quaternion frames from ${file.name}`;
+                statusDiv.style.color = '#00ff88';
+            }
+            
+            // Reset playback
+            resetQuaternionData();
+        };
+        reader.readAsText(file);
     }
 }
 
 // Add data playback controls to the UI
 function addDataPlaybackControls() {
-    const controlsDiv = document.querySelector('.controls');
+    const container = document.getElementById('data-controls-container');
     
     // Create data controls section
     const dataControlsHTML = `
         <div class="data-controls" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #333;">
-            <div style="color: #00ff88; font-weight: bold; margin-bottom: 10px;">Quaternion Data Playback</div>
-            <div style="margin-bottom: 10px;">
-                <span style="color: #ccc; font-size: 12px;">Frame: </span>
-                <span id="current-frame" style="color: #fff;">0</span>
+            <div class="coord-label" style="color: #00ff88; font-weight: bold; margin-bottom: 10px;">Quaternion Data Playback</div>
+            <div class="frame-info" style="margin-bottom: 10px; font-size: 12px;">
+                <span style="color: #ccc;">Frame: </span>
+                <span id="current-frame" style="color: #fff; font-weight: bold;">0</span>
                 <span style="color: #ccc;"> / </span>
-                <span id="total-frames" style="color: #fff;">${quaternionData.length}</span>
+                <span id="total-frames" style="color: #fff; font-weight: bold;">${quaternionData.length}</span>
             </div>
             <input type="range" id="data-slider" min="0" max="${quaternionData.length - 1}" value="0" style="width: 100%; margin-bottom: 10px;">
-            <div class="buttons">
+            <div class="buttons" style="margin-bottom: 10px;">
                 <button class="btn" id="play-data-btn">Play Data</button>
                 <button class="btn" id="pause-data-btn">Pause</button>
                 <button class="btn" id="reset-data-btn">Reset</button>
             </div>
-            <div style="margin-top: 10px;">
-                <label style="color: #ccc; font-size: 12px;">
-                    <input type="checkbox" id="loop-data" checked> Loop playback
+            <div class="checkbox-control" style="margin-bottom: 10px;">
+                <label style="color: #ccc; font-size: 12px; display: flex; align-items: center; gap: 5px;">
+                    <input type="checkbox" id="loop-data" checked style="margin: 0;"> Loop playback
                 </label>
             </div>
-            <div style="margin-top: 10px;">
-                <label style="color: #ccc; font-size: 12px;">Speed: </label>
+            <div class="speed-control" style="display: flex; align-items: center; gap: 8px; font-size: 12px;">
+                <label style="color: #ccc; margin: 0;">Speed:</label>
                 <input type="range" id="speed-slider" min="1" max="100" value="10" style="width: 60px;">
-                <span id="speed-value" style="color: #fff; font-size: 12px;">10</span>
+                <span id="speed-value" style="color: #fff; font-weight: bold; min-width: 20px;">10</span>
             </div>
         </div>
     `;
     
-    controlsDiv.insertAdjacentHTML('beforeend', dataControlsHTML);
+    container.insertAdjacentHTML('beforeend', dataControlsHTML);
     
     // Add event listeners for data controls
     setupDataControlEvents();
