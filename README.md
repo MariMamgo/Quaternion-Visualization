@@ -1,11 +1,16 @@
 # Quaternion 3D to 2D Projection Demo
 
-Demonstrating quaternion mathematics, 3D rotations, and orthographic projection from 3D to 2D space.
+Demonstrating quaternion mathematics, 3D rotations, and orthographic projection from 3D to 2D space. 
+
+I have modified my code such that it can read from input file and created two versions for this. 
+
+# Version 1
+
+This version consist of mainly old codes and little bit modified 'script.js' for reading input file and modified 'index.html' for new buttons.
 
 ## 🚀 How to Run
 
-- Simply double-click `index.html` to open in your default browser
-
+- Please open `index.html` using 'Go Live' from your console.
 
 ## 📁 Project Structure
 ```
@@ -16,19 +21,16 @@ quaternion-visualization/
 └── README.md       # This documentation
 ```
 
-## 🎮 How to Use
+# Version 2
 
-### Controls
-- **W, X, Y, Z Sliders**: Adjust quaternion components individually
-- **Auto Rotate**: Automatically animates the quaternion for smooth rotation
-- **Reset**: Returns all values to identity quaternion (1, 0, 0, 0)
-- **Clear Trails**: Removes the motion trails from both views
-- **Auto-normalize**: Keeps quaternion normalized (unit quaternion)
+This version only consist of 'index_2.html' which contains minimalistic code about how continuosly use input file information for object movement.
 
-### Interface
-- **Left Panel**: Control quaternion values and view current state
-- **3D View**: Shows the rotating cube in 3D space with perspective projection
-- **2D View**: Shows the orthographic projection of a tracked cube corner
+## 🚀 How to Run
+
+- You can directly double-click this file in the folder.
+
+
+
 
 ## 🧮 Mathematical Foundation
 
